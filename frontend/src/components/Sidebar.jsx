@@ -14,10 +14,17 @@ const Sidebar = () => {
     getUsers();
   }, [getUsers]);
 
-  const filteredUsers = showOnlineOnly
-    ? users.filter((user) => onlineUsers.includes(user._id))
-    : users;
+  // Only filter if users array exists
+  const filteredUsers =
+    users && showOnlineOnly && onlineUsers
+      ? users.filter((user) => onlineUsers.includes(user._id))
+      : users || [];
+
   if (isUserLoading) return <SidebarSkeleton />;
+
+  // Calculate online users count safely
+  const onlineCount = onlineUsers ? onlineUsers.length - 1 : 0;
+
   return (
     <aside className="h-full w-20 border-r border-base-300 flex flex-col transition-all duration-200">
       <div className="border-b border-base-300 w-full p-5">
@@ -35,9 +42,7 @@ const Sidebar = () => {
             />
             <span className="text-sm">Show online only</span>
           </label>
-          <span className="text-xs text-zinc-500">
-            ({onlineUsers.length - 1} online)
-          </span>
+          <span className="text-xs text-zinc-500">({onlineCount} online)</span>
         </div>
       </div>
       <div className="overflow-y-auto w-full py-3">
@@ -61,7 +66,7 @@ const Sidebar = () => {
                 alt={user.name}
                 className="size-12 object-cover rounded-full"
               />
-              {onlineUsers.includes(user._id) && (
+              {onlineUsers && onlineUsers.includes(user._id) && (
                 <span
                   className="absolute bottom-0 right-0 size-3 bg-green-500 
                   rounded-full ring-2 ring-zinc-900"
@@ -71,7 +76,9 @@ const Sidebar = () => {
             <div className="hidden lg:block text-left min-w-0">
               <div className="font-medium truncate">{user.fullName}</div>
               <div className="text-sm text-zinc-400">
-                {onlineUsers.includes(user._id) ? "Online" : "Offline"}
+                {onlineUsers && onlineUsers.includes(user._id)
+                  ? "Online"
+                  : "Offline"}
               </div>
             </div>
           </button>
@@ -84,4 +91,5 @@ const Sidebar = () => {
     </aside>
   );
 };
+
 export default Sidebar;

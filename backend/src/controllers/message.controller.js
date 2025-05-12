@@ -24,10 +24,10 @@ export const getMessages = async (req, res) => {
     const senderId = req.user._id;
     const messages = await Message.find({
       $or: [
-        { senderId: senderId, receiverId: userToChat },
+        { senderId: senderId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: senderId },
       ],
-    });
+    }).sort({ createdAt: 1 });
     res.status(200).json(messages);
   } catch (error) {
     console.log("Error in getMessages controller:", error.message);
