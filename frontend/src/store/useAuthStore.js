@@ -8,10 +8,10 @@ const BASE_URL = "http://localhost:5000";
 export const useAuthStore = create((set, get) => ({
   authUser: null,
   isSigningUp: false,
-  isLoggingIng: false,
+  isLoggingIn: false,
   isUpdatingProfile: false,
   isCheckingAuth: true,
-  onlineUers: [],
+  onlineUsers: [],
   socket: null,
 
   checkAuth: async () => {
@@ -43,7 +43,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   login: async (data) => {
-    set({ isLoggingIng: true });
+    set({ isLoggingIn: true });
     try {
       const res = await axiosInstance.post("/auth/login", data);
       set({ authUser: res.data });
@@ -53,14 +53,15 @@ export const useAuthStore = create((set, get) => ({
     } catch (error) {
       toast.error(error.response.data.message);
     } finally {
-      set({ isSigningUp: false });
+      set({ isLoggingIn: false });
     }
   },
 
   logout: async () => {
     try {
       await axiosInstance.post("/auth/logout");
-      set({ authUser: null });
+      get().disconnectSocket();
+      set({ authUser: null, onlineUsers: [] });
       toast.success("Logged out successfully");
     } catch (error) {
       toast.error(error.response.data.message);
@@ -83,19 +84,44 @@ export const useAuthStore = create((set, get) => ({
 
   connectSocket: () => {
     const { authUser } = get();
-    if (!authUser || get().socket?.connected) return;
+    if (!authUser) return;
+
+    get().disconnectSocket();
+
+    console.log("Connecting socket for user:", authUser._id);
     const socket = io(BASE_URL, {
       query: {
         userId: authUser._id,
       },
+      transports: ["websocket", "polling"],
     });
-    socket.connect();
-    set({ socket: socket });
-    socket.on("getOnlineUsers", (userIds) => {
-      set({ onlineUsers: userIds });
+
+    set({ socket });
+
+    socket.on("connect", () => {
+      console.log("Socket connected successfully!");
+    });
+
+    socket.on("getOnlineUsers", (users) => {
+      console.log("Received online users:", users);
+      set({ onlineUsers: users });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected");
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
     });
   },
+
   disconnectSocket: () => {
-    if (get().socket?.connected) get().socket.disconnect();
+    const { socket } = get();
+    if (socket) {
+      console.log("Manually disconnecting socket");
+      socket.disconnect();
+      set({ socket: null });
+    }
   },
 }));

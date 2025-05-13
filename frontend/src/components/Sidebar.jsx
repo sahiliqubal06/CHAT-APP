@@ -5,25 +5,55 @@ import SidebarSkeleton from "./skeletons/SidebarSkeleton";
 import { Users } from "lucide-react";
 
 const Sidebar = () => {
-  const { getUsers, users, selectedUser, setSelectedUser, isUserLoading } =
+  const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading } =
     useChatStore();
-  const { onlineUsers } = useAuthStore();
+  const { onlineUsers, socket } = useAuthStore();
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
 
   useEffect(() => {
-    getUsers();
-  }, [getUsers]);
+    console.log("Current online users:", onlineUsers);
+  }, [onlineUsers]);
 
-  // Only filter if users array exists
+  useEffect(() => {
+    getUsers();
+
+    const interval = setInterval(() => {
+      getUsers();
+    }, 15000);
+    if (socket) {
+      socket.on("userStatusChange", () => {
+        console.log("User status changed, refreshing users");
+        getUsers();
+      });
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (socket) {
+        socket.off("userStatusChange");
+      }
+    };
+  }, [getUsers, socket]);
+
+  useEffect(() => {
+    if (selectedUser) {
+      useChatStore.getState().getMessages(selectedUser._id);
+      useChatStore.getState().subscribeToMessages();
+    }
+
+    return () => {
+      useChatStore.getState().unsubscribeFromMessages();
+    };
+  }, [selectedUser]);
+
   const filteredUsers =
     users && showOnlineOnly && onlineUsers
       ? users.filter((user) => onlineUsers.includes(user._id))
       : users || [];
 
-  if (isUserLoading) return <SidebarSkeleton />;
+  if (isUsersLoading && users.length === 0) return <SidebarSkeleton />;
 
-  // Calculate online users count safely
-  const onlineCount = onlineUsers ? onlineUsers.length - 1 : 0;
+  const onlineCount = onlineUsers ? onlineUsers.length : 0;
 
   return (
     <aside className="h-full w-20 border-r border-base-300 flex flex-col transition-all duration-200">
@@ -46,46 +76,51 @@ const Sidebar = () => {
         </div>
       </div>
       <div className="overflow-y-auto w-full py-3">
-        {filteredUsers.map((user) => (
-          <button
-            key={user._id}
-            onClick={() => setSelectedUser(user)}
-            className={`
-              w-full p-3 flex items-center gap-3
-              hover:bg-base-300 transition-colors
-              ${
-                selectedUser?._id === user._id
-                  ? "bg-base-300 ring-1 ring-base-300"
-                  : ""
-              }
-            `}
-          >
-            <div className="relative mx-auto lg:mx-0">
-              <img
-                src={user.profilePic || "/avatar.png"}
-                alt={user.name}
-                className="size-12 object-cover rounded-full"
-              />
-              {onlineUsers && onlineUsers.includes(user._id) && (
-                <span
-                  className="absolute bottom-0 right-0 size-3 bg-green-500 
-                  rounded-full ring-2 ring-zinc-900"
+        {filteredUsers.length > 0 ? (
+          filteredUsers.map((user) => (
+            <button
+              key={user._id}
+              onClick={() => {
+                setSelectedUser(user);
+              }}
+              className={`
+                w-full p-3 flex items-center gap-3
+                hover:bg-base-300 transition-colors
+                ${
+                  selectedUser?._id === user._id
+                    ? "bg-base-300 ring-1 ring-base-300"
+                    : ""
+                }
+              `}
+            >
+              <div className="relative mx-auto lg:mx-0">
+                <img
+                  src={user.profilePic || "/avatar.png"}
+                  alt={user.fullName}
+                  className="size-12 object-cover rounded-full"
                 />
-              )}
-            </div>
-            <div className="hidden lg:block text-left min-w-0">
-              <div className="font-medium truncate">{user.fullName}</div>
-              <div className="text-sm text-zinc-400">
-                {onlineUsers && onlineUsers.includes(user._id)
-                  ? "Online"
-                  : "Offline"}
+                {onlineUsers && onlineUsers.includes(user._id) && (
+                  <span
+                    className="absolute bottom-0 right-0 size-3 bg-green-500 
+                     rounded-full ring-2 ring-zinc-900"
+                    title="Online"
+                  />
+                )}
               </div>
-            </div>
-          </button>
-        ))}
-
-        {filteredUsers.length === 0 && (
-          <div className="text-center text-zinc-500 py-4">No online users</div>
+              <div className="hidden lg:block text-left min-w-0">
+                <div className="font-medium truncate">{user.fullName}</div>
+                <div className="text-sm text-zinc-400">
+                  {onlineUsers && onlineUsers.includes(user._id)
+                    ? "Online"
+                    : "Offline"}
+                </div>
+              </div>
+            </button>
+          ))
+        ) : (
+          <div className="text-center text-zinc-500 py-4">
+            {showOnlineOnly ? "No online users" : "No users found"}
+          </div>
         )}
       </div>
     </aside>
